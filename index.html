@@ -36,6 +36,9 @@
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .button {
@@ -49,15 +52,20 @@
             width: 100%;
             cursor: pointer;
             margin-top: 12px;
+            transition: opacity 0.2s;
         }
 
         .button:active {
-            opacity: 0.8;
+            opacity: 0.7;
         }
 
         .button-secondary {
             background: #e1e3e6;
             color: #000000;
+        }
+
+        .button-danger {
+            background: #ff3347;
         }
 
         .info-row {
@@ -69,10 +77,12 @@
 
         .info-label {
             color: #6c7886;
+            font-weight: 400;
         }
 
         .info-value {
             font-weight: 500;
+            word-break: break-word;
             text-align: right;
         }
 
@@ -92,11 +102,14 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
+            font-weight: 600;
+            color: #6c7886;
         }
 
         .profile-name {
             font-size: 18px;
             font-weight: 600;
+            margin-bottom: 4px;
         }
 
         .greeting {
@@ -112,194 +125,315 @@
             color: #6c7886;
         }
 
-        .error-box {
-            background: #ffe8e8;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px;
+        .status-badge {
+            display: inline-block;
+            background: #4bb34b;
+            color: white;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .footer {
             text-align: center;
-            color: #d32f2f;
+            margin-top: 32px;
+            color: #6c7886;
+            font-size: 12px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: #2c2d2e;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
     </style>
 </head>
 <body>
     <div id="root">
-        <div class="loading">Загрузка приложения...</div>
+        <div class="loading">
+            <div>📱 Загрузка мини-приложения...</div>
+            <div style="font-size: 12px; margin-top: 12px;">Подключение к VK</div>
+        </div>
     </div>
 
     <script>
-        // Проверяем, запущено ли приложение внутри VK
-        const isInsideVK = window.location !== window.parent.location;
-        
-        // Функция для рендера UI
-        function renderUI(userData = null, error = null) {
+        // Встроенный обработчик без внешних скриптов
+        (function() {
             const root = document.getElementById('root');
             
-            if (error) {
+            // Функция для показа уведомления
+            function showToast(message, isError = false) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.style.background = isError ? '#ff3347' : '#2c2d2e';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+            
+            // Получаем параметры из URL (VK передаёт их в iframe)
+            function getUrlParams() {
+                const params = new URLSearchParams(window.location.search);
+                return {
+                    vk_user_id: params.get('vk_user_id'),
+                    vk_app_id: params.get('vk_app_id'),
+                    vk_is_app_user: params.get('vk_is_app_user'),
+                    vk_language: params.get('vk_language'),
+                    vk_platform: params.get('vk_platform'),
+                    vk_ref: params.get('vk_ref')
+                };
+            }
+            
+            // Функция отправки сообщения в VK (для VK Bridge)
+            function sendToVK(method, params = {}) {
+                return new Promise((resolve, reject) => {
+                    if (window.parent && window.parent.postMessage) {
+                        const requestId = Date.now() + Math.random();
+                        const message = {
+                            type: method,
+                            data: params,
+                            request_id: requestId
+                        };
+                        
+                        // Обработчик ответа
+                        const handler = (event) => {
+                            if (event.data && event.data.request_id === requestId) {
+                                window.removeEventListener('message', handler);
+                                if (event.data.type === method + '_RESULT') {
+                                    resolve(event.data.data);
+                                } else if (event.data.type === method + '_ERROR') {
+                                    reject(event.data.data);
+                                } else {
+                                    resolve(event.data);
+                                }
+                            }
+                        };
+                        
+                        window.addEventListener('message', handler);
+                        window.parent.postMessage(message, '*');
+                        
+                        // Таймаут на случай отсутствия ответа
+                        setTimeout(() => {
+                            window.removeEventListener('message', handler);
+                            reject(new Error('Timeout'));
+                        }, 5000);
+                    } else {
+                        reject(new Error('postMessage not available'));
+                    }
+                });
+            }
+            
+            // Инициализация приложения с данными из URL
+            function initFromUrlParams() {
+                const params = getUrlParams();
+                
+                if (params.vk_user_id) {
+                    // Мы внутри VK, есть параметры пользователя
+                    const userData = {
+                        id: parseInt(params.vk_user_id),
+                        first_name: 'Пользователь VK',
+                        last_name: '',
+                        platform: params.vk_platform || 'web',
+                        app_id: params.vk_app_id
+                    };
+                    
+                    // Пробуем получить имя через VK Bridge, если доступно
+                    if (window.vkBridge) {
+                        window.vkBridge.send('VKWebAppGetUserInfo')
+                            .then(userInfo => {
+                                if (userInfo && userInfo.first_name) {
+                                    userData.first_name = userInfo.first_name;
+                                    userData.last_name = userInfo.last_name || '';
+                                    if (userInfo.city) userData.city = userInfo.city;
+                                }
+                                renderApp(userData);
+                            })
+                            .catch(() => renderApp(userData));
+                    } else {
+                        renderApp(userData);
+                    }
+                } else {
+                    // Не в VK или не хватает параметров
+                    renderApp(null);
+                }
+            }
+            
+            // Отрисовка приложения
+            function renderApp(userData) {
+                const isInVK = userData && userData.id;
+                const displayName = userData ? (userData.first_name || 'Пользователь') : 'Гость';
+                const userId = userData ? userData.id : 'Не авторизован';
+                
+                const hour = new Date().getHours();
+                let greeting = hour < 12 ? 'Доброе утро' : (hour < 18 ? 'Добрый день' : 'Добрый вечер');
+                
                 root.innerHTML = `
-                    <div class="error-box">
-                        <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
-                        <div style="font-weight: 600; margin-bottom: 8px;">Ошибка загрузки</div>
-                        <div style="font-size: 14px;">${error}</div>
-                        <button class="button" onclick="location.reload()" style="margin-top: 16px;">Перезагрузить</button>
+                    <div class="app-container">
+                        <div class="greeting">
+                            ${greeting}, ${displayName}! 👋
+                            ${isInVK ? '<span class="status-badge" style="display: inline-block; margin-left: 8px; font-size: 12px;">VK</span>' : ''}
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-title">
+                                👤 Профиль
+                            </div>
+                            <div class="profile-section">
+                                <div class="profile-avatar">
+                                    ${displayName.charAt(0).toUpperCase() || '👤'}
+                                </div>
+                                <div class="profile-info">
+                                    <div class="profile-name">${displayName} ${userData?.last_name || ''}</div>
+                                    <div style="font-size: 13px; color: #6c7886;">
+                                        ID: ${userId}
+                                    </div>
+                                </div>
+                            </div>
+                            ${userData?.platform ? `
+                            <div class="info-row">
+                                <span class="info-label">📱 Платформа</span>
+                                <span class="info-value">${userData.platform}</span>
+                            </div>
+                            ` : ''}
+                            <div class="info-row">
+                                <span class="info-label">🔗 Статус</span>
+                                <span class="info-value">${isInVK ? 'Внутри VK' : 'Вне VK'}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-title">⚡ Возможности</div>
+                            <button class="button" id="showNotificationBtn">🔔 Показать уведомление</button>
+                            <button class="button button-secondary" id="shareBtn">📤 Поделиться</button>
+                            <button class="button button-secondary" id="closeBtn">❌ Закрыть приложение</button>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-title">ℹ️ Информация</div>
+                            <div class="info-row">
+                                <span class="info-label">📱 Приложение</span>
+                                <span class="info-value">VK Mini App</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">🌐 Режим</span>
+                                <span class="info-value">${isInVK ? 'Полный' : 'Демо'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">📅 Время</span>
+                                <span class="info-value">${new Date().toLocaleTimeString('ru-RU')}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="footer">
+                            ✨ Мини-приложение для VK<br>
+                            <span style="font-size: 10px;">Версия 1.0</span>
+                        </div>
                     </div>
                 `;
-                return;
-            }
-            
-            if (!userData) {
-                root.innerHTML = `<div class="loading">⏳ Инициализация VK...</div>`;
-                return;
-            }
-            
-            const hour = new Date().getHours();
-            let greeting = hour < 12 ? 'Доброе утро' : (hour < 18 ? 'Добрый день' : 'Добрый вечер');
-            
-            root.innerHTML = `
-                <div class="app-container">
-                    <div class="greeting">${greeting}, ${userData.first_name || 'Пользователь'}! 👋</div>
-                    
-                    <div class="card">
-                        <div class="card-title">👤 Профиль</div>
-                        <div class="profile-section">
-                            <div class="profile-avatar">
-                                ${(userData.first_name?.[0] || '👤')}
-                            </div>
-                            <div class="profile-info">
-                                <div class="profile-name">${userData.first_name || ''} ${userData.last_name || ''}</div>
-                                <div style="font-size: 13px; color: #6c7886;">ID: ${userData.id || 'Неизвестно'}</div>
-                            </div>
-                        </div>
-                        ${userData.city ? `<div class="info-row">
-                            <span class="info-label">🏙️ Город</span>
-                            <span class="info-value">${userData.city.title || 'Не указан'}</span>
-                        </div>` : ''}
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card-title">⚡ Действия</div>
-                        <button class="button" id="alertBtn">Показать уведомление</button>
-                        <button class="button button-secondary" id="shareBtn">Поделиться</button>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card-title">ℹ️ О приложении</div>
-                        <div class="info-row">
-                            <span class="info-label">Режим</span>
-                            <span class="info-value">VK Mini App</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Статус</span>
-                            <span class="info-value">✅ Активно</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Добавляем обработчики
-            document.getElementById('alertBtn')?.addEventListener('click', () => {
-                if (window.vkBridge) {
-                    window.vkBridge.send('VKWebAppShowNotification', {
-                        text: 'Привет из мини-приложения!',
-                        title: 'Уведомление'
-                    }).catch(() => alert('Уведомление: Привет из мини-приложения!'));
-                } else {
-                    alert('Уведомление: Привет из мини-приложения!');
-                }
-            });
-            
-            document.getElementById('shareBtn')?.addEventListener('click', () => {
-                if (window.vkBridge) {
-                    window.vkBridge.send('VKWebAppShare', {
-                        link: window.location.href,
-                        title: 'Моё мини-приложение'
-                    }).catch(() => alert('Поделиться не удалось'));
-                } else {
-                    alert('Функция доступна только внутри VK');
-                }
-            });
-        }
-        
-        // Основная инициализация
-        async function init() {
-            console.log('Инициализация приложения...');
-            
-            // Загружаем VK Bridge
-            const script = document.createElement('script');
-            script.src = 'https://vk.com/js/api/openapi.js';
-            script.onload = () => {
-                console.log('VK API загружен');
-                startApp();
-            };
-            script.onerror = () => {
-                console.error('Ошибка загрузки VK API');
-                renderUI(null, 'Не удалось загрузить VK API. Проверьте подключение к интернету.');
-            };
-            document.head.appendChild(script);
-        }
-        
-        async function startApp() {
-            try {
-                // Ждём загрузку bridge
-                if (!window.vkBridge && !window.VK) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
                 
-                // Пробуем получить данные пользователя через VK Bridge
-                let userInfo = null;
-                
-                // Способ 1: через VK Apps метод
-                if (window.VK && window.VK.WebApp) {
-                    try {
-                        userInfo = await window.VK.WebApp.getUserInfo();
-                        console.log('User info получены через VK.WebApp:', userInfo);
-                    } catch(e) {
-                        console.log('Ошибка VK.WebApp.getUserInfo:', e);
+                // Обработчики кнопок
+                document.getElementById('showNotificationBtn')?.addEventListener('click', () => {
+                    if (isInVK && window.vkBridge) {
+                        window.vkBridge.send('VKWebAppShowNotification', {
+                            text: 'Привет из мини-приложения! 👋',
+                            title: 'Уведомление'
+                        }).catch(() => showToast('Уведомление отправлено!', false));
+                    } else if (isInVK) {
+                        // Пробуем через postMessage
+                        sendToVK('VKWebAppShowNotification', {
+                            text: 'Привет из мини-приложения! 👋',
+                            title: 'Уведомление'
+                        }).catch(() => showToast('Уведомление: Привет из VK Mini App!', false));
+                    } else {
+                        showToast('Демо-режим: уведомление сработало бы внутри VK', false);
                     }
-                }
+                });
                 
-                // Способ 2: через параметры URL (передаются VK)
-                if (!userInfo) {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const vkUserId = urlParams.get('vk_user_id');
-                    
-                    if (vkUserId) {
-                        userInfo = {
-                            id: parseInt(vkUserId),
-                            first_name: 'Пользователь',
-                            last_name: '',
-                            city: { title: 'Не указан' }
-                        };
-                        console.log('User info из URL params:', userInfo);
+                document.getElementById('shareBtn')?.addEventListener('click', () => {
+                    if (isInVK && window.vkBridge) {
+                        window.vkBridge.send('VKWebAppShare', {
+                            link: window.location.href,
+                            title: 'Моё мини-приложение в VK!'
+                        }).catch(() => showToast('Не удалось поделиться', true));
+                    } else if (isInVK) {
+                        sendToVK('VKWebAppShare', {
+                            link: window.location.href,
+                            title: 'Моё мини-приложение в VK!'
+                        }).catch(() => showToast('Не удалось поделиться', true));
+                    } else {
+                        showToast('Демо-режим: функция доступна внутри VK', false);
+                        navigator.clipboard.writeText(window.location.href);
+                        showToast('Ссылка скопирована в буфер обмена!', false);
                     }
-                }
+                });
                 
-                // Способ 3: тестовые данные
-                if (!userInfo) {
-                    userInfo = {
-                        id: 1,
-                        first_name: 'Тестовый',
-                        last_name: 'Пользователь',
-                        city: { title: 'Тестовый город' }
-                    };
-                    console.log('Используем тестовые данные');
-                }
-                
-                renderUI(userInfo);
-                
-                // Устанавливаем bridge если доступен
-                if (window.vkBridge) {
-                    window.vkBridge.send('VKWebAppInit', {});
-                }
-                
-            } catch (error) {
-                console.error('Ошибка инициализации:', error);
-                renderUI(null, 'Не удалось запустить приложение. Попробуйте перезагрузить страницу.');
+                document.getElementById('closeBtn')?.addEventListener('click', () => {
+                    if (isInVK && window.vkBridge) {
+                        window.vkBridge.send('VKWebAppClose', { status: 'success' })
+                            .catch(() => showToast('Нажмите кнопку "Назад" для закрытия', false));
+                    } else {
+                        showToast('Демо-режим: в VK приложение закроется', false);
+                    }
+                });
             }
-        }
-        
-        // Запускаем инициализацию
-        init();
+            
+            // Ожидаем загрузку vkBridge от VK (встроенный объект)
+            let bridgeAttempts = 0;
+            function waitForBridge() {
+                if (window.vkBridge) {
+                    console.log('VK Bridge найден');
+                    initFromUrlParams();
+                } else if (bridgeAttempts < 20) {
+                    bridgeAttempts++;
+                    setTimeout(waitForBridge, 100);
+                } else {
+                    console.log('VK Bridge не найден, используем URL параметры');
+                    initFromUrlParams();
+                }
+            }
+            
+            // Запускаем ожидание
+            waitForBridge();
+            
+            // Дополнительная проверка: если VK API доступен через другой способ
+            if (window.VK && window.VK.WebApp) {
+                window.VK.WebApp.init(() => {
+                    console.log('VK WebApp инициализирован');
+                    if (window.VK.WebApp.getUserInfo) {
+                        window.VK.WebApp.getUserInfo().then(userInfo => {
+                            if (userInfo) {
+                                renderApp({
+                                    id: userInfo.id,
+                                    first_name: userInfo.first_name,
+                                    last_name: userInfo.last_name,
+                                    city: userInfo.city
+                                });
+                            }
+                        }).catch(() => {});
+                    }
+                });
+            }
+        })();
     </script>
 </body>
 </html>
