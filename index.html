@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>VK Mini App — Сканер штрихкодов</title>
+    
+    <!-- Стили VKUI (необязательно, но рекомендую) -->
+    <link rel="stylesheet" href="https://unpkg.com/@vkontakte/vkui@6/dist/css/vkui.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--vkui--color_background);
+            color: var(--vkui--color_text_primary);
+        }
+        
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .card {
+            background: var(--vkui--color_background_secondary);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        
+        .button {
+            background: #0077ff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+        
+        .button:active {
+            opacity: 0.7;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 12px;
+            background: var(--vkui--color_background_content);
+            border-radius: 12px;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .result-text {
+            word-break: break-all;
+            font-size: 14px;
+            color: var(--vkui--color_text_subhead);
+        }
+        
+        .status {
+            margin-top: 20px;
+            font-size: 14px;
+            color: var(--vkui--color_text_secondary);
+        }
+        
+        /* Адаптация под VK Mini App */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #191919;
+                color: #ffffff;
+            }
+            .card {
+                background: #2c2c2e;
+            }
+            .result {
+                background: #3a3a3c;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>📷 Сканер штрихкодов</h1>
+            <p>Нажмите на кнопку, чтобы отсканировать штрихкод или QR-код</p>
+            
+            <button class="button" id="scanBtn">🔍 Начать сканирование</button>
+            
+            <div class="result" id="result">
+                <div class="result-text" id="resultText"></div>
+            </div>
+            
+            <div class="status" id="status">Готов к сканированию</div>
+        </div>
+    </div>
+
+    <!-- Подключаем VK Bridge -->
+    <script src="https://vk.com/js/api/xd_connection.js?2"></script>
+    <script>
+        // Инициализация VK Mini App
+        (function() {
+            // Ждём загрузки VK Bridge
+            if (typeof VK !== 'undefined') {
+                VK.init(function() {
+                    console.log('VK Bridge initialized');
+                    updateStatus('VK Mini App готов к работе');
+                }, function() {
+                    console.error('VK Bridge initialization failed');
+                    updateStatus('Ошибка инициализации VK');
+                });
+            } else {
+                console.log('Запуск в браузере (не внутри VK)');
+                updateStatus('Работа в режиме браузера (функции VK ограничены)');
+            }
+        })();
+
+        function updateStatus(message) {
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.textContent = message;
+            }
+        }
+
+        function showResult(text) {
+            const resultDiv = document.getElementById('result');
+            const resultText = document.getElementById('resultText');
+            if (resultDiv && resultText) {
+                resultText.textContent = text;
+                resultDiv.classList.add('show');
+                updateStatus('Сканирование завершено');
+            }
+        }
+
+        // Функция сканирования для VK Mini App
+        function scanVK() {
+            updateStatus('Запуск сканера...');
+            
+            // Метод VK WebApp для сканирования QR-кодов
+            if (typeof VK !== 'undefined' && VK.callMethod) {
+                VK.callMethod('VKWebAppOpenQR', {}, function(data) {
+                    if (data && data.result) {
+                        showResult(data.result);
+                    } else if (data && data.error) {
+                        updateStatus('Ошибка: ' + data.error);
+                        console.error('Scan error:', data);
+                    } else {
+                        updateStatus('Сканирование отменено');
+                    }
+                });
+            } 
+            // Альтернативный метод через VKWebApp
+            else if (window.VKWebApp && window.VKWebApp.openQR) {
+                window.VKWebApp.openQR().then(function(result) {
+                    if (result && result.result) {
+                        showResult(result.result);
+                    }
+                }).catch(function(error) {
+                    updateStatus('Ошибка сканирования');
+                    console.error(error);
+                });
+            }
+            // Если не в VK — эмуляция для тестирования
+            else {
+                updateStatus('Эмуляция: сканирование в браузере');
+                const mockResult = prompt('Введите текст штрихкода (эмуляция):', '123456789012');
+                if (mockResult) {
+                    showResult(mockResult);
+                } else {
+                    updateStatus('Сканирование отменено');
+                }
+            }
+        }
+
+        // Привязываем обработчик к кнопке
+        const scanBtn = document.getElementById('scanBtn');
+        if (scanBtn) {
+            scanBtn.addEventListener('click', scanVK);
+        }
+
+        // Отправка события о готовности приложения (VK WebApp)
+        if (typeof VK !== 'undefined') {
+            VK.init(function() {
+                VK.callMethod('VKWebAppInit');
+            });
+        }
+    </script>
+</body>
+</html>
