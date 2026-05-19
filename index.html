@@ -3,211 +3,518 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>VK Mini App — Сканер штрихкодов</title>
+    <title>Моё мини-приложение ВКонтакте</title>
     
-    <!-- Стили VKUI (необязательно, но рекомендую) -->
-    <link rel="stylesheet" href="https://unpkg.com/@vkontakte/vkui@6/dist/css/vkui.css" />
+    <!-- Подключение VK Mini Apps SDK -->
+    <script src="https://vk.com/js/api/openapi.js?169" type="text/javascript"></script>
+    <script src="https://unpkg.com/@vkontakte/vk-bridge@2.16.0/dist/browser.min.js"></script>
     
+    <!-- VK UI библиотека для стилизации -->
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: var(--vkui--color_background);
-            color: var(--vkui--color_text_primary);
-        }
-        
-        .container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #000000;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
         }
-        
+
+        /* Контейнер с отступами под VK UI */
+        .app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+        }
+
+        /* Карточки и элементы в стиле VK */
         .card {
-            background: var(--vkui--color_background_secondary);
-            border-radius: 16px;
-            padding: 24px;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        h1 {
-            font-size: 24px;
+            background: #f5f5f7;
+            border-radius: 18px;
+            padding: 20px;
             margin-bottom: 16px;
-            font-weight: 600;
+            transition: transform 0.1s ease;
         }
-        
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .button {
             background: #0077ff;
-            color: white;
             border: none;
-            padding: 12px 24px;
             border-radius: 12px;
+            padding: 12px 20px;
             font-size: 16px;
             font-weight: 500;
-            cursor: pointer;
-            margin-top: 20px;
+            color: white;
             width: 100%;
-            transition: opacity 0.2s;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            margin-top: 12px;
         }
-        
+
         .button:active {
             opacity: 0.7;
+            transform: scale(0.98);
         }
-        
-        .result {
-            margin-top: 20px;
-            padding: 12px;
-            background: var(--vkui--color_background_content);
-            border-radius: 12px;
-            display: none;
+
+        .button-secondary {
+            background: #e1e3e6;
+            color: #000000;
         }
-        
-        .result.show {
-            display: block;
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e7e8ec;
         }
-        
-        .result-text {
-            word-break: break-all;
-            font-size: 14px;
-            color: var(--vkui--color_text_subhead);
+
+        .info-label {
+            color: #6c7886;
+            font-weight: 400;
         }
-        
-        .status {
-            margin-top: 20px;
-            font-size: 14px;
-            color: var(--vkui--color_text_secondary);
+
+        .info-value {
+            font-weight: 500;
+            word-break: break-word;
+            text-align: right;
         }
-        
-        /* Адаптация под VK Mini App */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: #191919;
-                color: #ffffff;
-            }
-            .card {
-                background: #2c2c2e;
-            }
-            .result {
-                background: #3a3a3c;
-            }
+
+        .status-badge {
+            display: inline-block;
+            background: #4bb34b;
+            color: white;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-offline {
+            background: #c6ccd2;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .profile-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #e1e3e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 500;
+            color: #6c7886;
+        }
+
+        .profile-info {
+            flex: 1;
+        }
+
+        .profile-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .greeting {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #6c7886;
+            font-size: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c7886;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <h1>📷 Сканер штрихкодов</h1>
-            <p>Нажмите на кнопку, чтобы отсканировать штрихкод или QR-код</p>
-            
-            <button class="button" id="scanBtn">🔍 Начать сканирование</button>
-            
-            <div class="result" id="result">
-                <div class="result-text" id="resultText"></div>
-            </div>
-            
-            <div class="status" id="status">Готов к сканированию</div>
-        </div>
+    <div id="root" class="app-container">
+        <div class="loading">Загрузка приложения...</div>
     </div>
 
-    <!-- Подключаем VK Bridge -->
-    <script src="https://vk.com/js/api/xd_connection.js?2"></script>
     <script>
-        // Инициализация VK Mini App
-        (function() {
-            // Ждём загрузки VK Bridge
-            if (typeof VK !== 'undefined') {
-                VK.init(function() {
-                    console.log('VK Bridge initialized');
-                    updateStatus('VK Mini App готов к работе');
-                }, function() {
-                    console.error('VK Bridge initialization failed');
-                    updateStatus('Ошибка инициализации VK');
-                });
-            } else {
-                console.log('Запуск в браузере (не внутри VK)');
-                updateStatus('Работа в режиме браузера (функции VK ограничены)');
-            }
-        })();
+        // Инициализация VK Bridge
+        const vkBridge = window.vkBridge || window.VKBridge;
 
-        function updateStatus(message) {
-            const statusEl = document.getElementById('status');
-            if (statusEl) {
-                statusEl.textContent = message;
-            }
-        }
+        // Состояние приложения
+        let appState = {
+            user: null,
+            isInitialized: false,
+            platform: 'unknown',
+            isVK: true,
+            appId: null
+        };
 
-        function showResult(text) {
-            const resultDiv = document.getElementById('result');
-            const resultText = document.getElementById('resultText');
-            if (resultDiv && resultText) {
-                resultText.textContent = text;
-                resultDiv.classList.add('show');
-                updateStatus('Сканирование завершено');
-            }
-        }
+        // DOM элементы будем создавать динамически
+        const rootElement = document.getElementById('root');
 
-        // Функция сканирования для VK Mini App
-        function scanVK() {
-            updateStatus('Запуск сканера...');
+        // Функция для рендера UI
+        function renderUI() {
+            if (!rootElement) return;
             
-            // Метод VK WebApp для сканирования QR-кодов
-            if (typeof VK !== 'undefined' && VK.callMethod) {
-                VK.callMethod('VKWebAppOpenQR', {}, function(data) {
-                    if (data && data.result) {
-                        showResult(data.result);
-                    } else if (data && data.error) {
-                        updateStatus('Ошибка: ' + data.error);
-                        console.error('Scan error:', data);
-                    } else {
-                        updateStatus('Сканирование отменено');
-                    }
-                });
-            } 
-            // Альтернативный метод через VKWebApp
-            else if (window.VKWebApp && window.VKWebApp.openQR) {
-                window.VKWebApp.openQR().then(function(result) {
-                    if (result && result.result) {
-                        showResult(result.result);
-                    }
-                }).catch(function(error) {
-                    updateStatus('Ошибка сканирования');
-                    console.error(error);
-                });
+            if (!appState.isInitialized) {
+                rootElement.innerHTML = `
+                    <div class="loading">
+                        <div>📱 Подключение к VK...</div>
+                        <div style="font-size: 12px; margin-top: 12px;">Мини-приложение загружается</div>
+                    </div>
+                `;
+                return;
             }
-            // Если не в VK — эмуляция для тестирования
-            else {
-                updateStatus('Эмуляция: сканирование в браузере');
-                const mockResult = prompt('Введите текст штрихкода (эмуляция):', '123456789012');
-                if (mockResult) {
-                    showResult(mockResult);
-                } else {
-                    updateStatus('Сканирование отменено');
+
+            const user = appState.user;
+            const platform = appState.platform;
+            
+            // Определяем приветствие в зависимости от времени
+            const hour = new Date().getHours();
+            let greetingText = '';
+            if (hour < 12) greetingText = 'Доброе утро';
+            else if (hour < 18) greetingText = 'Добрый день';
+            else greetingText = 'Добрый вечер';
+            
+            const userName = user ? (user.first_name || 'Гость') : 'Гость';
+            
+            // Аватар инициалы
+            let avatarInitials = '👤';
+            if (user && user.first_name && user.last_name) {
+                avatarInitials = (user.first_name[0] + user.last_name[0]).toUpperCase();
+            } else if (user && user.first_name) {
+                avatarInitials = user.first_name[0].toUpperCase();
+            }
+            
+            // Статус подключения к VK
+            const vkStatus = appState.isVK ? 'Активно' : 'Тестовый режим';
+            const statusClass = appState.isVK ? 'status-badge' : 'status-badge status-offline';
+            
+            const html = `
+                <div class="greeting">${greetingText}, ${userName}! 👋</div>
+                
+                <div class="card">
+                    <div class="card-title">
+                        👤 Профиль
+                        <span class="${statusClass}">${vkStatus}</span>
+                    </div>
+                    
+                    <div class="profile-section">
+                        <div class="profile-avatar">
+                            ${avatarInitials}
+                        </div>
+                        <div class="profile-info">
+                            <div class="profile-name">${user ? (user.first_name + ' ' + (user.last_name || '')) : 'Не авторизован'}</div>
+                            <div style="font-size: 13px; color: #6c7886;">
+                                ${user ? 'ID: ' + user.id : 'Нажмите "Войти через VK"'}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${user ? `
+                        <div class="info-row">
+                            <span class="info-label">📱 Платформа</span>
+                            <span class="info-value">${platform === 'vk' ? 'VK Mobile' : platform || 'Web'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🔗 Тип запуска</span>
+                            <span class="info-value">${appState.isVK ? 'Мини-приложение' : 'Прямой доступ'}</span>
+                        </div>
+                        ${user.city ? `<div class="info-row">
+                            <span class="info-label">🏙️ Город</span>
+                            <span class="info-value">${user.city.title || 'Не указан'}</span>
+                        </div>` : ''}
+                    ` : ''}
+                </div>
+                
+                <div class="card">
+                    <div class="card-title">⚡ Возможности</div>
+                    <button class="button" id="showAlertBtn">Показать уведомление</button>
+                    <button class="button button-secondary" id="shareBtn" style="margin-top: 12px;">Поделиться в VK</button>
+                    <button class="button button-secondary" id="getGeodataBtn">📍 Запросить геопозицию</button>
+                    ${!user ? `<button class="button" id="loginBtn" style="background: #2c6fbb; margin-top: 12px;">🔑 Войти через VK</button>` : ''}
+                </div>
+                
+                <div class="card">
+                    <div class="card-title">ℹ️ Информация о приложении</div>
+                    <div class="info-row">
+                        <span class="info-label">📱 Приложение</span>
+                        <span class="info-value">VK Mini App Demo</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">🔧 Версия SDK</span>
+                        <span class="info-value">2.16.0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">🆔 App ID</span>
+                        <span class="info-value">${appState.appId || 'Не указан'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📅 Дата</span>
+                        <span class="info-value">${new Date().toLocaleDateString('ru-RU')}</span>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    ✨ Работает внутри VK Mini Apps<br>
+                    <span style="font-size: 10px;">Для настройки: укажите URL вашего GitHub Pages</span>
+                </div>
+            `;
+            
+            rootElement.innerHTML = html;
+            
+            // Привязываем обработчики после рендера
+            const alertBtn = document.getElementById('showAlertBtn');
+            if (alertBtn) alertBtn.addEventListener('click', showNotification);
+            
+            const shareBtn = document.getElementById('shareBtn');
+            if (shareBtn) shareBtn.addEventListener('click', shareStory);
+            
+            const geoBtn = document.getElementById('getGeodataBtn');
+            if (geoBtn) geoBtn.addEventListener('click', requestGeolocation);
+            
+            const loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) loginBtn.addEventListener('click', loginToVK);
+        }
+        
+        // Функции взаимодействия с VK Bridge
+        async function showNotification() {
+            if (!window.vkBridge) {
+                alert('VK Bridge не инициализирован. Попробуйте открыть приложение внутри VK.');
+                return;
+            }
+            
+            try {
+                await window.vkBridge.send('VKWebAppShowNativeAds', {});
+                // Альтернативное уведомление если нативная реклама недоступна
+                await window.vkBridge.send('VKWebAppShowNotification', {
+                    text: 'Привет из мини-приложения! 👋',
+                    title: 'Уведомление'
+                });
+            } catch (error) {
+                console.error('Ошибка уведомления:', error);
+                // Fallback для тестов
+                alert('✅ VK Mini App работает! (Уведомление в VK клиенте)');
+                // Для демо показываем alert
+                if (!appState.isVK) {
+                    alert('Демо-режим: Приложение работает, но для полного функционала откройте его через VK');
                 }
             }
         }
-
-        // Привязываем обработчик к кнопке
-        const scanBtn = document.getElementById('scanBtn');
-        if (scanBtn) {
-            scanBtn.addEventListener('click', scanVK);
+        
+        async function shareStory() {
+            if (!window.vkBridge) {
+                alert('Bridge недоступен');
+                return;
+            }
+            
+            try {
+                await window.vkBridge.send('VKWebAppShare', {
+                    link: window.location.href,
+                    title: 'Моё мини-приложение в VK!',
+                    description: 'Попробуй это приложение прямо в VK'
+                });
+            } catch (error) {
+                console.error('Ошибка шаринга:', error);
+                alert('Поделиться не удалось. Попробуйте позже.');
+            }
         }
-
-        // Отправка события о готовности приложения (VK WebApp)
-        if (typeof VK !== 'undefined') {
-            VK.init(function() {
-                VK.callMethod('VKWebAppInit');
+        
+        async function requestGeolocation() {
+            if (!window.vkBridge) {
+                alert('Для геопозиции нужно открыть приложение в VK');
+                return;
+            }
+            
+            try {
+                const result = await window.vkBridge.send('VKWebAppGetGeodata');
+                if (result && result.lat && result.long) {
+                    alert(`📍 Ваше местоположение:\nШирота: ${result.lat}\nДолгота: ${result.long}`);
+                } else {
+                    alert('Не удалось получить геопозицию');
+                }
+            } catch (error) {
+                console.error('Ошибка геолокации:', error);
+                alert('Не удалось получить доступ к геопозиции. Разрешите доступ в настройках.');
+            }
+        }
+        
+        async function loginToVK() {
+            if (!window.vkBridge) {
+                alert('Bridge недоступен. Приложение должно работать внутри VK');
+                return;
+            }
+            
+            try {
+                // Запрашиваем доступ к данным пользователя
+                const userData = await window.vkBridge.send('VKWebAppGetUserInfo');
+                if (userData) {
+                    appState.user = userData;
+                    appState.isInitialized = true;
+                    renderUI();
+                    // Показываем успешный вход
+                    await window.vkBridge.send('VKWebAppShowNotification', {
+                        text: `Добро пожаловать, ${userData.first_name}!`,
+                        title: 'Авторизация'
+                    });
+                }
+            } catch (error) {
+                console.error('Ошибка входа:', error);
+                alert('Не удалось авторизоваться. Возможно, требуется подтверждение прав.');
+            }
+        }
+        
+        // Получение информации о запуске и платформе
+        async function initVKApp() {
+            try {
+                // Проверяем наличие VK Bridge
+                if (typeof window.vkBridge !== 'undefined') {
+                    console.log('VK Bridge доступен');
+                    
+                    // Получаем информацию о запуске (важно для платформы)
+                    try {
+                        const launchParams = await window.vkBridge.send('VKWebAppGetLaunchParams');
+                        console.log('Launch params:', launchParams);
+                        appState.platform = launchParams.platform || 'vk';
+                        appState.appId = launchParams.vk_app_id || 'неизвестно';
+                        appState.isVK = true;
+                    } catch (e) {
+                        console.warn('Не удалось получить параметры запуска', e);
+                        appState.platform = 'vk_web';
+                    }
+                    
+                    // Пытаемся получить данные пользователя автоматически (если уже авторизован)
+                    try {
+                        const userInfo = await window.vkBridge.send('VKWebAppGetUserInfo');
+                        if (userInfo && userInfo.id) {
+                            appState.user = userInfo;
+                        } else {
+                            // Пробуем альтернативный метод получения данных
+                            const userData = await window.vkBridge.send('VKWebAppGetAuthToken', { 
+                                app_id: appState.appId || 0,
+                                scope: 'friends,photos'
+                            });
+                            if (userData && userData.user_id) {
+                                appState.user = { id: userData.user_id, first_name: 'Пользователь' };
+                            }
+                        }
+                    } catch (userError) {
+                        console.log('Автоматическая авторизация не удалась, пользователь может войти кнопкой', userError);
+                        // Не показываем ошибку, просто остаёмся без данных пользователя
+                    }
+                    
+                    // Установка внешнего вида (темная/светлая тема)
+                    try {
+                        const appearance = await window.vkBridge.send('VKWebAppGetAppearance');
+                        if (appearance && appearance.is_dark_theme) {
+                            document.body.style.backgroundColor = '#19191a';
+                            document.body.style.color = '#ffffff';
+                            document.querySelectorAll('.card').forEach(card => {
+                                card.style.backgroundColor = '#2c2d2e';
+                            });
+                        }
+                    } catch (e) {
+                        // Игнорируем ошибку темы
+                    }
+                    
+                } else {
+                    console.warn('VK Bridge не найден. Приложение работает вне VK.');
+                    appState.isVK = false;
+                    appState.platform = 'standalone';
+                    // Демо-данные для тестирования вне VK
+                    appState.user = {
+                        id: 123456,
+                        first_name: 'Демо',
+                        last_name: 'Пользователь',
+                        city: { title: 'Тестовый город' }
+                    };
+                }
+                
+                appState.isInitialized = true;
+                renderUI();
+                
+            } catch (error) {
+                console.error('Ошибка инициализации VK:', error);
+                // Режим fallback для просмотра вне VK
+                appState.isInitialized = true;
+                appState.isVK = false;
+                appState.user = {
+                    id: 999999,
+                    first_name: 'Гость',
+                    last_name: 'Демо',
+                    city: { title: 'Локальный режим' }
+                };
+                appState.platform = 'browser';
+                renderUI();
+            }
+        }
+        
+        // Обработка событий от VK Bridge (например, закрытие, изменение темы)
+        function setupBridgeListeners() {
+            if (!window.vkBridge) return;
+            
+            // Слушаем изменение внешнего вида
+            window.vkBridge.subscribe((event) => {
+                const { detail } = event;
+                if (detail && detail.type === 'VKWebAppUpdateAppearance') {
+                    const isDark = detail.data.is_dark_theme;
+                    if (isDark) {
+                        document.body.style.backgroundColor = '#19191a';
+                        document.body.style.color = '#ffffff';
+                        const cards = document.querySelectorAll('.card');
+                        cards.forEach(card => {
+                            card.style.backgroundColor = '#2c2d2e';
+                        });
+                    } else {
+                        document.body.style.backgroundColor = '#ffffff';
+                        document.body.style.color = '#000000';
+                        const cards = document.querySelectorAll('.card');
+                        cards.forEach(card => {
+                            card.style.backgroundColor = '#f5f5f7';
+                        });
+                    }
+                }
             });
         }
+        
+        // Запуск приложения
+        (async function() {
+            // Ожидаем загрузку Bridge
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    initVKApp();
+                    setupBridgeListeners();
+                });
+            } else {
+                initVKApp();
+                setupBridgeListeners();
+            }
+        })();
     </script>
 </body>
 </html>
